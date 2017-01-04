@@ -3459,7 +3459,7 @@ var negamaxSearch = function(position, depth, color, alpha, beta) {
 
   negaMaxCount++
 
-  if (position.game_over() || depth === 0) return { score: color * calculateScore(position), move: undefined }
+  if (depth === 0 || position.game_over()) return { score: color * calculateScore(position), move: undefined }
 
   bestScore = -Infinity
   bestMove = null
@@ -3525,7 +3525,6 @@ function calculateScore(position) {
   }
   
   function winScore(position) {
-    // return 0
     if (!position.in_checkmate()) return 0
 
     return position.turn() === 'w' ? -1 : 1
@@ -3553,36 +3552,13 @@ function extend(a, b) {
 }
 
 exports.aiMove = function(position) {
-  var color
-
-  color = position.turn() === 'w' ? 1 : -1
-  return negamaxSearch(position, 3, color, -Infinity, Infinity)
+  return negamaxSearch(position, 3, position.turn() === 'w' ? 1 : -1, -Infinity, Infinity)
 }
 
-// var i, best, color, depth, alpha, beta
-//
-// i = 0
-// color = 1
-// depth = 3
-// alpha = -Infinity
-// beta = Infinity
-// while (!chess.game_over() && i < 70) {
-//   if (color === 1) {
-//     best = negamaxSearch(chess, depth, color, alpha, beta)
-//     chess.move(best.move)
-//   }
-//   else {
-//     chess.move(chess.moves()[Math.floor(Math.random() * chess.moves().length)])
-//   }
-//   color = color === 1 ? -1 : 1
-//   console.log(chess.ascii())
-//   i++
-// }
-// console.log('Half Turns:' + i, 'Mate:' + chess.in_checkmate(), 'Draw:' + chess.in_draw(),
-//   'Stale:' + chess.in_stalemate(), 'ThreeFold:' + chess.in_threefold_repetition())
-
-var c = new Chess()
-console.log(negamaxSearch(c, 3, 1, -Infinity, Infinity), negaMaxCount)
+// var c = new Chess()
+// console.log(negamaxSearch(c, 3, 1, -Infinity, Infinity), negaMaxCount)
+// w  -Inf  Inf -> 6  Inf
+// b  -Inf  -6  -> -7 -6
 },{"./pieceTable.js":5,"chess.js":1}],5:[function(require,module,exports){
 'use strict'
 

@@ -11,11 +11,7 @@ var negamaxSearch = function(position, depth, color, alpha, beta) {
 
   negaMaxCount++
 
-  if (position.game_over()) return { score: color * calculateScore(position), move: undefined }
-  else if (depth === 0) {
-    if (true) return { score: color * calculateScore(position), move: undefined } // is quiet or ignore noise flag
-    else return // do quiescence search
-  }
+  if (depth === 0 || position.game_over()) return { score: color * calculateScore(position), move: undefined }
 
   bestScore = -Infinity
   bestMove = null

@@ -72,7 +72,7 @@ function squareToIndices(square) {
   return [RANK_TO_INDEX[square[0]], FILE_TO_INDEX[square[1]]]
 }
 
-exports.getPostionValue = function(piece) {
+exports.getPositionValue = function(piece) {
   var pos
   
   pos = squareToIndices(piece.square)

@@ -1,7 +1,7 @@
 'use strict'
 var Chess = require('chess.js').Chess
 var pieceTable = require('./pieceTable.js')
-var SCORE_LOOKUP = { p: 1, n: 3, b: 3, r: 5, q: 8, k: 200 }
+var SCORE_LOOKUP = { p: 1, n: 3.2, b: 3.3, r: 5, q: 9, k: 200 }
 
 var negaMaxCount = 0
 
@@ -13,27 +13,23 @@ var negamaxSearch = function(position, depth, color, alpha, beta, extension, qui
 
   if (position.game_over()) return { score: color * calculateScore(position), move: undefined }
 
-  if (depth === 0) {
-    if (!quiescence) {
-      if (position.in_check() && !extension) {
-        extension = true
-        depth = 1
-      }
-      else {
-        quiescence = true
-      }
+  if (!quiescence && depth === 0) {
+    if (!extension && position.in_check()) {
+      extension = true
+      depth = 1
+    }
+    else {
+      quiescence = true
+      depth = 1
     }
   }
 
+  moves = position.moves({ verbose: true })
   if (quiescence) {
-    moves = position.moves({ verbose: true }).filter(function(move) {
+    moves = moves.filter(function(move) {
       return move.hasOwnProperty('captured')
     })
-    if (moves.length === 0) return {score: color * calculateScore(position), move: undefined}
-    depth = 1
-  }
-  else {
-    moves = position.moves({ verbose: true })
+    if (depth === 0 || moves.length === 0) return { score: color * calculateScore(position), move: undefined }
   }
 
   bestScore = -Infinity
@@ -77,7 +73,7 @@ function calculateScore(position) {
   moves = { w: position.moves({ verbose: true, reversePlayers: position.turn() === 'b' }),
     b: position.moves({ verbose: true, reversePlayers: position.turn() === 'w' }) }
 
-  return 100 * piecesScore(pieces) + + 10 * mobilityScore(moves) + positionScore(pieces) + 20000 * winScore(position)
+  return 100 * piecesScore(pieces) + 10 * mobilityScore(moves) + positionScore(pieces)
 
   function piecesScore(pieces) {
     return pieces.w.reduce(pieceScore, 0) - pieces.b.reduce(pieceScore, 0)
@@ -91,7 +87,7 @@ function calculateScore(position) {
     return pieces.w.reduce(positionScoreFold, 0) - pieces.b.reduce(positionScoreFold, 0)
     
     function positionScoreFold(acc, piece) {
-      return acc + pieceTable.getPostionValue(piece)
+      return acc + pieceTable.getPositionValue(piece)
     }
   }
 
@@ -130,5 +126,7 @@ exports.aiMove = function(position) {
   return negamaxSearch(position, 3, position.turn() === 'w' ? 1 : -1, -Infinity, Infinity)
 }
 
-var c = new Chess()
-console.log(negamaxSearch(c, 3, 1, -Infinity, Infinity), negaMaxCount)
+// var c = new Chess()
+// console.time('negamax')
+// negamaxSearch(c, 3, 1, -Infinity, Infinity)
+// console.timeEnd('negamax')

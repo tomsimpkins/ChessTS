@@ -3454,17 +3454,40 @@ var SCORE_LOOKUP = { p: 1, n: 3, b: 3, r: 5, q: 8, k: 200 }
 var negaMaxCount = 0
 
 // Returns a tuple (score, bestmove) for the position at the given depth
-var negamaxSearch = function(position, depth, color, alpha, beta) {
+var negamaxSearch = function(position, depth, color, alpha, beta, extension, quiescence) {
   var bestMove, bestScore, positionCopy, res, move, moves, i
 
   negaMaxCount++
 
-  if (depth === 0 || position.game_over()) return { score: color * calculateScore(position), move: undefined }
+  if (position.game_over()) return { score: color * calculateScore(position), move: undefined }
+
+  if (depth === 0) {
+    if (!quiescence) {
+      if (position.in_check() && !extension) {
+        extension = true
+        depth = 1
+      }
+      else {
+        quiescence = true
+      }
+    }
+  }
+
+  if (quiescence) {
+    moves = position.moves({ verbose: true }).filter(function(move) {
+      return move.hasOwnProperty('captured')
+    })
+    if (moves.length === 0) return {score: color * calculateScore(position), move: undefined}
+    depth = 1
+  }
+  else {
+    moves = position.moves({ verbose: true })
+  }
 
   bestScore = -Infinity
   bestMove = null
 
-  moves = position.moves({ verbose: true }).sort(compareHeuristic)
+  moves = moves.sort(compareHeuristic)
 
   for (i = 0; i < moves.length; i++) {
     move = moves[i]
@@ -3472,7 +3495,7 @@ var negamaxSearch = function(position, depth, color, alpha, beta) {
     positionCopy = new Chess(position.fen())
     positionCopy.move(move)
 
-    res = negamaxSearch(positionCopy, depth - 1, color === 1 ? -1 : 1, -beta, -alpha)
+    res = negamaxSearch(positionCopy, depth - 1, color === 1 ? -1 : 1, -beta, -alpha, extension, quiescence)
     res.score = -res.score
 
     if (res.score > bestScore) {
@@ -3499,10 +3522,10 @@ function calculateScore(position) {
     return acc
   }, { w: [], b: [] })
 
-  // moves = { w: position.moves({ verbose: true, reversePlayers: position.turn() === 'b' }),
-  //   b: position.moves({ verbose: true, reversePlayers: position.turn() === 'w' }) }
+  moves = { w: position.moves({ verbose: true, reversePlayers: position.turn() === 'b' }),
+    b: position.moves({ verbose: true, reversePlayers: position.turn() === 'w' }) }
 
-  return 100 * piecesScore(pieces) + positionScore(pieces) + 20000 * winScore(position)
+  return 100 * piecesScore(pieces) + + 10 * mobilityScore(moves) + positionScore(pieces) + 20000 * winScore(position)
 
   function piecesScore(pieces) {
     return pieces.w.reduce(pieceScore, 0) - pieces.b.reduce(pieceScore, 0)
@@ -3554,6 +3577,9 @@ function extend(a, b) {
 exports.aiMove = function(position) {
   return negamaxSearch(position, 3, position.turn() === 'w' ? 1 : -1, -Infinity, Infinity)
 }
+
+var c = new Chess()
+console.log(negamaxSearch(c, 3, 1, -Infinity, Infinity), negaMaxCount)
 },{"./pieceTable.js":5,"chess.js":1}],5:[function(require,module,exports){
 'use strict'
 

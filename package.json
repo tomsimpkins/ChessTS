@@ -1,0 +1,8 @@
+{
+  "name": "chessts",
+  "description": "play against my robot",
+  "version": "1.0.0",
+  "engines": {
+    "node": "6.2.2"
+  }
+}

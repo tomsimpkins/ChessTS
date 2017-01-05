@@ -3499,10 +3499,10 @@ function calculateScore(position) {
     return acc
   }, { w: [], b: [] })
 
-  moves = { w: position.moves({ verbose: true, reversePlayers: position.turn() === 'b' }),
-    b: position.moves({ verbose: true, reversePlayers: position.turn() === 'w' }) }
+  // moves = { w: position.moves({ verbose: true, reversePlayers: position.turn() === 'b' }),
+  //   b: position.moves({ verbose: true, reversePlayers: position.turn() === 'w' }) }
 
-  return 100 * piecesScore(pieces) + 10 * mobilityScore(moves) + positionScore(pieces) + 10000 * winScore(position)
+  return 100 * piecesScore(pieces) + positionScore(pieces) + 20000 * winScore(position)
 
   function piecesScore(pieces) {
     return pieces.w.reduce(pieceScore, 0) - pieces.b.reduce(pieceScore, 0)
@@ -3554,11 +3554,6 @@ function extend(a, b) {
 exports.aiMove = function(position) {
   return negamaxSearch(position, 3, position.turn() === 'w' ? 1 : -1, -Infinity, Infinity)
 }
-
-// var c = new Chess()
-// console.log(negamaxSearch(c, 3, 1, -Infinity, Infinity), negaMaxCount)
-// w  -Inf  Inf -> 6  Inf
-// b  -Inf  -6  -> -7 -6
 },{"./pieceTable.js":5,"chess.js":1}],5:[function(require,module,exports){
 'use strict'
 

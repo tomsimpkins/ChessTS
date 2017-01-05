@@ -9,6 +9,7 @@ path = __dirname
 
 app.use('/img/chesspieces/wikipedia', express.static(path + '/public/lib/img/chesspieces/wikipedia'))
 app.use('/style/chessboard-0.3.0.min.css', express.static(path + '/public/lib/chessboard-0.3.0.min.css'))
+app.use('/style/highlights.css', express.static(path + '/public/lib/highlights.css'))
 app.use('/bundle.js', express.static(path + '/public/bundle.js'))
 app.get('/', function (req, res) {
   res.sendFile('public/default.html', {root: path})

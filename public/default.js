@@ -4,12 +4,24 @@ var Chess = require('chess.js').Chess
 var ChessBoard = require('chessboardjs')
 
 function initGame() {
-  var board, cfg, game, onDragStart, onDrop
+  var board, boardEl, cfg, game, onDragStart, onDrop, onMoveEnd, removeHighlights, squareToHighlight
 
+  boardEl = $('#gameBoard')
   statusEl = $('#status')
   fenEl = $('#fen')
   pgnEl = $('#pgn')
   aiScoreEl = $('#aiScore')
+
+  removeHighlights = function(color) {
+    boardEl.find('.square-55d63')
+      .removeClass('highlight-' + color);
+  };
+
+  onMoveEnd = function() {
+      boardEl.find('.square-' + squareToHighlight)
+        .addClass('highlight-black')
+    }
+
 
   game = new Chess()
 
@@ -33,6 +45,12 @@ function initGame() {
 
     if (move === null) return 'snapback'
 
+    removeHighlights('black')
+    boardEl.find('.square-' + source)
+      .addClass('highlight-' + 'white')
+    boardEl.find('.square-' + target)
+      .addClass('highlight-' + 'white')
+
     updateStatus()
   };
 
@@ -44,6 +62,12 @@ function initGame() {
     window.setTimeout(function() {
       move = aiMove(game)
       game.move(move.move)
+
+      removeHighlights('white')
+      boardEl.find('.square-' + move.move.from)
+        .addClass('highlight-black')
+      squareToHighlight = move.move.to
+
       aiScoreEl.html(move.score)
       updateBoard()
       updateStatus()
@@ -88,7 +112,8 @@ function initGame() {
     position: 'start',
     onDragStart: onDragStart,
     onDrop: onDrop,
-    onSnapEnd: onSnapEnd
+    onSnapEnd: onSnapEnd,
+    onMoveEnd: onMoveEnd
   }
 
   board = new ChessBoard('gameBoard', cfg)

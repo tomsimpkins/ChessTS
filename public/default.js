@@ -18,10 +18,9 @@ function initGame() {
   };
 
   onMoveEnd = function() {
-      boardEl.find('.square-' + squareToHighlight)
-        .addClass('highlight-black')
-    }
-
+    boardEl.find('.square-' + squareToHighlight)
+      .addClass('highlight-black')
+  }
 
   game = new Chess()
 

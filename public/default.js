@@ -3,8 +3,22 @@ var aiMove = require('./lib/negamax.js').aiMove
 var Chess = require('chess.js').Chess
 var ChessBoard = require('chessboardjs')
 
+// var webworkify = require('webworkify')
+
+// var w = webworkify(require('./worker.js'))
+// w.addEventListener('message', function (ev) {
+//   console.log(ev.data)
+// })
+// w.postMessage(4)
+
+// var worker = webworkify(require('./lib/negamax.js'))
+
 function initGame() {
   var board, boardEl, cfg, game, onDragStart, onDrop, onMoveEnd, removeHighlights, squareToHighlight
+
+  // worker.addEventListener('message', function(event) {
+  //   console.log(event.data)
+  // })
 
   boardEl = $('#gameBoard')
   statusEl = $('#status')

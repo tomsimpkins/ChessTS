@@ -3352,8 +3352,22 @@ var aiMove = require('./lib/negamax.js').aiMove
 var Chess = require('chess.js').Chess
 var ChessBoard = require('chessboardjs')
 
+// var webworkify = require('webworkify')
+
+// var w = webworkify(require('./worker.js'))
+// w.addEventListener('message', function (ev) {
+//   console.log(ev.data)
+// })
+// w.postMessage(4)
+
+// var worker = webworkify(require('./lib/negamax.js'))
+
 function initGame() {
   var board, boardEl, cfg, game, onDragStart, onDrop, onMoveEnd, removeHighlights, squareToHighlight
+
+  // worker.addEventListener('message', function(event) {
+  //   console.log(event.data)
+  // })
 
   boardEl = $('#gameBoard')
   statusEl = $('#status')
@@ -3367,9 +3381,9 @@ function initGame() {
   };
 
   onMoveEnd = function() {
-      boardEl.find('.square-' + squareToHighlight)
-        .addClass('highlight-black')
-    }
+    boardEl.find('.square-' + squareToHighlight)
+      .addClass('highlight-black')
+  }
 
   game = new Chess()
 
@@ -3469,23 +3483,153 @@ function initGame() {
 }
 
 $(document).ready(initGame)
-},{"./lib/negamax.js":4,"chess.js":1,"chessboardjs":2}],4:[function(require,module,exports){
+},{"./lib/negamax.js":6,"chess.js":1,"chessboardjs":2}],4:[function(require,module,exports){
+function TranspositionTable(tableSize) {
+  this.tableSize = tableSize
+  this.hashTable = (function(hashTable) {
+    var i
+
+    for (i = 0; i < tableSize; i++) {
+      hashTable[i] = null
+    }
+    return hashTable
+  })([])
+}
+
+TranspositionTable.prototype.getIndexFromHash = function(hash) {
+  var index
+
+  index = hash % this.tableSize
+  return index < 0 ? index + this.tableSize : index
+}
+
+TranspositionTable.prototype.retrieve = function(hash) {
+  var index, res
+
+  index = this.getIndexFromHash(hash)
+  res = this.hashTable[index]
+  
+  return res == null || res.zobrist !== hash ? null : res
+}
+
+TranspositionTable.prototype.insert = function(hash, depth, value, flag, move) {
+  var index
+
+  index = this.getIndexFromHash(hash)
+  this.hashTable[index] = this.node(hash, depth, value, flag, move)
+}
+
+TranspositionTable.prototype.node = function(zobrist, depth, value, flag, move) {
+  return {
+    zobrist: zobrist,
+    depth: depth,
+    value: value,
+    flag: flag,
+    move: move
+  }
+}
+
+exports.TranspositionTable = TranspositionTable
+},{}],5:[function(require,module,exports){
+var Chess = require('chess.js').Chess
+
+function Zobrist() {
+  this.initialiseZobristTable()
+}
+
+Zobrist.prototype.initialiseZobristTable = function() {
+  // fill a table of random numbers/bitstrings
+  var pieceKeys, dummyPosition, seededRandom
+
+  seededRandom = (function(s) {
+    return function() {
+      s = Math.sin(s) * 10000
+      return s - Math.floor(s)
+    }
+  })(1000)
+
+  dummyPosition = new Chess()
+  pieceKeys = ['pw', 'nw', 'bw', 'rw', 'qw', 'kw', 'pb', 'nb', 'bb', 'rb', 'qb', 'kb']
+
+  this.table = dummyPosition.SQUARES.reduce(function(table, square) {
+    table[square] = pieceKeys.reduce(function(pieceLookup, key) {
+      pieceLookup[key] = random32BitInteger()
+      return pieceLookup
+    }, {})
+    return table
+  }, {})
+
+  function random32BitInteger() {
+    return Math.floor(seededRandom() * Math.pow(2, 32))
+  }
+}
+
+Zobrist.prototype.hashFromPosition = function(position) {
+  var _this
+  
+  _this = this
+  return position.SQUARES.reduce(function(h, square) {
+    var piece
+
+    piece = position.get(square)
+    if (piece === null) return h
+
+    return h ^ _this.table[square][piece.type + piece.color]
+  }, 0)
+}
+
+Zobrist.prototype.updateHash = function(hash, move) {
+  var _this, pieceKey
+
+  _this = this
+  pieceKey = move.piece + move.color
+  hash ^= this.table[move.from][pieceKey] // moving piece leaves source
+  hash ^= this.table[move.to][pieceKey]   // moving piece enters destination
+  move.flags.split('').forEach(function(flag) {
+    if (flag === 'c') {
+      hash ^= _this.table[move.to][move.captured + (move.color === 'b' ? 'w' : 'b')] // remove captured piece
+    }
+    else if (flag === 'e') {
+      hash ^= _this.table[move.to[0] + move.from[1]][move.captured + (move.color === 'b' ? 'w' : 'b')] // remove passed pawn
+    }
+    else if (flag === 'p') {
+      hash ^= _this.table[move.to][pieceKey]                    // moving piece leaves board
+      hash ^= _this.table[move.to][move.promotion + move.color] // promotion enters boards
+    }
+    else if (flag === 'k') {
+      hash ^= _this.table['h' + move.from[1]]['r' + move.color] // remove rook from corner
+      hash ^= _this.table['f' + move.from[1]]['r' + move.color] // put rook inside king
+    }
+    else if (flag === 'q') {
+      hash ^= _this.table['a' + move.from[1]]['r' + move.color] // remove rook from corner
+      hash ^= _this.table['d' + move.from[1]]['r' + move.color] // put rook inside king
+    }
+  })
+
+  return hash
+}
+
+exports.Zobrist = Zobrist
+},{"chess.js":1}],6:[function(require,module,exports){
 'use strict'
 var Chess = require('chess.js').Chess
+var Zobrist = require('./Zobrist.js').Zobrist
+var TranspositionTable = require('./TranspositionTable.js').TranspositionTable
 var pieceTable = require('./pieceTable.js')
-var SCORE_LOOKUP = { p: 1, n: 3.2, b: 3.3, r: 5, q: 9, k: 200 }
 
-var transpositionTable = {}
+var SCORE_LOOKUP = { p: 1, n: 3.2, b: 3.3, r: 5, q: 9, k: 200 }
+var hasher = new Zobrist()
+var tTable = new TranspositionTable(Math.pow(2, 20))
 
 var calculateScore = (function() {
   var cache
 
   cache = {}
-  return function(position) {
+  return function(position, hash) {
     var pieces, moves, fen, score
 
-    fen = position.fen().replace(/ -.*/, '')
-    if (cache.hasOwnProperty(fen)) return cache[fen]
+    // fen = position.fen().replace(/ -.*/, '')
+    if (cache.hasOwnProperty(hash)) return cache[hash]
 
     pieces = position.SQUARES.reduce(function(acc, square) {
       var piece
@@ -3503,7 +3647,7 @@ var calculateScore = (function() {
     }
 
     score = 100 * piecesScore(pieces) + 10 * mobilityScore(moves) + positionScore(pieces) + 20000 * winScore(position)
-    cache[fen] = score
+    cache[hash] = score
 
     return score
 
@@ -3536,14 +3680,39 @@ var calculateScore = (function() {
 })()
 
 var negaMaxCount = 0
+var retrievalCount = [0, 0, 0, 0]
+var alphaBetaCuts = 0
 
 // Returns a tuple (score, bestmove) for the position at the given depth
-var negamaxSearch = function(position, depth, color, alpha, beta, extension, quiescence) {
-  var bestMove, bestScore, fen, positionCopy, res, move, moves, i
+var negamaxSearch = function(position, depth, color, alpha, beta, extension, quiescence, hash) {
+  var alphaOrig, bestMove, bestScore, res, move, moves, i, ttEntry, ttFlag
 
   negaMaxCount++
+  alphaOrig = alpha
 
-  if (position.game_over()) return { score: color * calculateScore(position), move: undefined }
+  // Transposition Table Lookup; node is the lookup key for ttEntry
+  ttEntry = tTable.retrieve(hash)
+  if (ttEntry !== null && ttEntry.depth >= depth) {
+    if (ttEntry.flag = 'EXACT') {
+      retrievalCount[0]++
+      return { score: ttEntry.value, move: ttEntry.move }
+    }
+    else if (ttEntry.flag = 'LOWER_BOUND') {
+      retrievalCount[1]++
+      alpha = Math.max(alpha, ttEntry.value)
+    }
+    else if (ttEntry.flag = 'UPPER_BOUND') {
+      retrievalCount[2]++
+      beta = Math.min(beta, ttEntry.value)
+    }
+
+    if (alpha >= beta) {
+      retrievalCount[3]++
+      return { score: ttEntry.value, move: ttEntry.move }
+    }
+  }
+
+  if (position.game_over()) return { score: color * calculateScore(position, hash), move: undefined }
 
   if (!quiescence && depth === 0) {
     if (!extension && position.in_check()) {
@@ -3561,30 +3730,39 @@ var negamaxSearch = function(position, depth, color, alpha, beta, extension, qui
     moves = moves.filter(function(move) {
       return move.hasOwnProperty('captured')
     })
-    if (depth === 0 || moves.length === 0) return { score: color * calculateScore(position), move: undefined }
+    if (depth === 0 || moves.length === 0) return { score: color * calculateScore(position, hash), move: undefined }
   }
 
   bestScore = -Infinity
   bestMove = null
 
-  fen = position.fen()
   moves = moves.sort(compareHeuristic)
 
   for (i = 0; i < moves.length; i++) {
     move = moves[i]
 
-    positionCopy = new Chess(fen)
-    positionCopy.move(move)
+    position.move(move)
+    res = negamaxSearch(position, depth - 1, color === 1 ? -1 : 1, -beta, -alpha, extension, quiescence, hasher.updateHash(hash, move))
+    position.undo()
 
-    res = negamaxSearch(positionCopy, depth - 1, color === 1 ? -1 : 1, -beta, -alpha, extension, quiescence)
     res.score = -res.score
-
     if (res.score > bestScore) {
       bestScore = res.score
       bestMove = move
     }
     if (res.score > alpha) alpha = res.score
-    if (alpha >= beta) break
+    if (alpha >= beta) {
+      alphaBetaCuts += (moves.length - i)
+      break
+    }
+  }
+
+  if (ttEntry === null || ttEntry.depth < depth) {
+    if (bestScore <= alphaOrig) ttFlag = 'UPPER_BOUND'
+    else if (bestScore >= beta) ttFlag = 'LOWER_BOUND'
+    else ttFlag = 'EXACT'
+
+    tTable.insert(hash, depth, bestScore, ttFlag, bestMove)
   }
 
   return { score: bestScore, move: bestMove }
@@ -3610,30 +3788,25 @@ function extend(a, b) {
   return a
 }
 
-exports.aiMove = function(position) {
-  var res = negamaxSearch(position, 3, position.turn() === 'w' ? 1 : -1, -Infinity, Infinity)
-  console.log(Object.keys(transpositionTable).length)
-  return res
+function aiMove(position) {
+  var hash, result
+
+  hash = hasher.hashFromPosition(position)
+
+  console.time('negamax')
+  result = negamaxSearch(position, 3, position.turn() === 'w' ? 1 : -1, -Infinity, Infinity, false, false, hash)
+  console.timeEnd('negamax')
+  console.log('negamaxCalls:' + negaMaxCount, 'alphaBetaCuts:' + alphaBetaCuts, 'ttRetrievals:' + JSON.stringify(retrievalCount))
+
+  negaMaxCount = 0
+  alphaBetaCuts = 0
+  retrievalCount = [0, 0, 0, 0]
+
+  return result
 }
 
-// var count, position, table, initialHash, incrementalHash, endHash, move
-// position = new Chess()
-// table = init_zobrist()
-// endHash = incrementalHash = initialHash = init_hash(position, table)
-// count = 0
-// var gameCount = 0
-// while (gameCount++ < 10000) {
-//   while (incrementalHash === endHash && !position.game_over() && count++ < 1000) {
-//     move = position.moves({verbose: true})[Math.floor(position.moves().length * Math.random())]
-//     position.move(move)
-//     incrementalHash = updateHash(table, incrementalHash, move)
-//     endHash = init_hash(position, table)
-//   }
-// }
-//
-// if (incrementalHash !== endHash) console.log('endHash:' + endHash, 'incrementalHash:' + incrementalHash, position.history({verbose: true}))
-
-},{"./pieceTable.js":5,"chess.js":1}],5:[function(require,module,exports){
+module.exports.aiMove = aiMove
+},{"./TranspositionTable.js":4,"./Zobrist.js":5,"./pieceTable.js":7,"chess.js":1}],7:[function(require,module,exports){
 'use strict'
 
 var TABLES, RANK_TO_INDEX, FILE_TO_INDEX

@@ -1,85 +1,46 @@
-var Chess = require('chess.js').Chess
+function TranspositionTable(tableSize) {
+  this.tableSize = tableSize
+  this.hashTable = (function(hashTable) {
+    var i
 
-function TranspositionTable() {
-  this.hashMap = {}
-  this.table = this.initialiseZobrist()
+    for (i = 0; i < tableSize; i++) {
+      hashTable[i] = null
+    }
+    return hashTable
+  })([])
 }
 
-TranspositionTable.prototype.retrieve = function() {}
+TranspositionTable.prototype.getIndexFromHash = function(hash) {
+  var index
 
-TranspositionTable.prototype.node = function(zobrist, depth, score, alpha, beta, flag) {
+  index = hash % this.tableSize
+  return index < 0 ? index + this.tableSize : index
+}
+
+TranspositionTable.prototype.retrieve = function(hash) {
+  var index, res
+
+  index = this.getIndexFromHash(hash)
+  res = this.hashTable[index]
+  
+  return res == null || res.zobrist !== hash ? null : res
+}
+
+TranspositionTable.prototype.insert = function(hash, depth, value, flag, move) {
+  var index
+
+  index = this.getIndexFromHash(hash)
+  this.hashTable[index] = this.node(hash, depth, value, flag, move)
+}
+
+TranspositionTable.prototype.node = function(zobrist, depth, value, flag, move) {
   return {
     zobrist: zobrist,
     depth: depth,
-    score: score,
-    alpha: alpha,
-    beta: beta,
-    flag: flag
+    value: value,
+    flag: flag,
+    move: move
   }
 }
 
-TranspositionTable.prototype.initialiseZobrist = function() {
-  // fill a table of random numbers/bitstrings
-  var pieceKeys, dummyPosition
-
-  dummyPosition = new Chess()
-  pieceKeys = ['pw', 'nw', 'bw', 'rw', 'qw', 'kw', 'pb', 'nb', 'bb', 'rb', 'qb', 'kb']
-
-  return dummyPosition.SQUARES.reduce(function(table, square) {
-    table[square] = pieceKeys.reduce(function(pieceLookup, key) {
-      pieceLookup[key] = random32BitInteger()
-      return pieceLookup
-    }, {})
-    return table
-  }, {})
-
-  function random32BitInteger() {
-    return Math.round(Math.random() * Math.pow(2, 32))
-  }
-}
-
-TranspositionTable.prototype.hashFromPosition = function(position) {
-  var _this
-
-  return position.SQUARES.reduce(function(h, square) {
-    var piece
-
-    piece = position.get(square)
-    if (piece === null) return h
-
-    return h ^ _this.table[square][piece.type + piece.color]
-  }, 0)
-}
-
-function updateHash(table, hash, move) {
-  var pieceKey
-
-  pieceKey = move.piece + move.color
-  hash ^= table[move.from][pieceKey] // moving piece leaves source
-  hash ^= table[move.to][pieceKey]   // moving piece enters destination
-  move.flags.split('').forEach(function(flag) {
-    if (flag === 'c') {
-      hash ^= table[move.to][move.captured + (move.color === 'b' ? 'w' : 'b')] // remove captured piece
-    }
-    else if (flag === 'e') {
-      hash ^= table[move.to[0] + move.from[1]][move.captured + (move.color === 'b' ? 'w' : 'b')] // remove passed pawn
-    }
-    else if (flag === 'p') {
-      hash ^= table[move.to][pieceKey]                    // moving piece leaves board
-      hash ^= table[move.to][move.promotion + move.color] // promotion enters boards
-    }
-    else if (flag === 'k') {
-      hash ^= table['h' + move.from[1]]['r' + move.color] // remove rook from corner
-      hash ^= table['f' + move.from[1]]['r' + move.color] // put rook inside king
-    }
-    else if (flag === 'q') {
-      hash ^= table['a' + move.from[1]]['r' + move.color] // remove rook from corner
-      hash ^= table['d' + move.from[1]]['r' + move.color] // put rook inside king
-    }
-  })
-
-  return hash
-}
-
-var t = new TranspositionTable()
-console.log(t)
+exports.TranspositionTable = TranspositionTable

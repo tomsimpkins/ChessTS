@@ -3691,26 +3691,26 @@ var negamaxSearch = function(position, depth, color, alpha, beta, extension, qui
   alphaOrig = alpha
 
   // Transposition Table Lookup; node is the lookup key for ttEntry
-  ttEntry = tTable.retrieve(hash)
-  if (ttEntry !== null && ttEntry.depth >= depth) {
-    if (ttEntry.flag = 'EXACT') {
-      retrievalCount[0]++
-      return { score: ttEntry.value, move: ttEntry.move }
-    }
-    else if (ttEntry.flag = 'LOWER_BOUND') {
-      retrievalCount[1]++
-      alpha = Math.max(alpha, ttEntry.value)
-    }
-    else if (ttEntry.flag = 'UPPER_BOUND') {
-      retrievalCount[2]++
-      beta = Math.min(beta, ttEntry.value)
-    }
-
-    if (alpha >= beta) {
-      retrievalCount[3]++
-      return { score: ttEntry.value, move: ttEntry.move }
-    }
-  }
+  // ttEntry = tTable.retrieve(hash)
+  // if (ttEntry !== null && ttEntry.depth >= depth) {
+  //   if (ttEntry.flag = 'EXACT') {
+  //     retrievalCount[0]++
+  //     return { score: ttEntry.value, move: ttEntry.move }
+  //   }
+  //   else if (ttEntry.flag = 'LOWER_BOUND') {
+  //     retrievalCount[1]++
+  //     alpha = Math.max(alpha, ttEntry.value)
+  //   }
+  //   else if (ttEntry.flag = 'UPPER_BOUND') {
+  //     retrievalCount[2]++
+  //     beta = Math.min(beta, ttEntry.value)
+  //   }
+  //
+  //   if (alpha >= beta) {
+  //     retrievalCount[3]++
+  //     return { score: ttEntry.value, move: ttEntry.move }
+  //   }
+  // }
 
   if (position.game_over()) return { score: color * calculateScore(position, hash), move: undefined }
 
@@ -3757,13 +3757,13 @@ var negamaxSearch = function(position, depth, color, alpha, beta, extension, qui
     }
   }
 
-  if (ttEntry === null || ttEntry.depth < depth) {
-    if (bestScore <= alphaOrig) ttFlag = 'UPPER_BOUND'
-    else if (bestScore >= beta) ttFlag = 'LOWER_BOUND'
-    else ttFlag = 'EXACT'
-
-    tTable.insert(hash, depth, bestScore, ttFlag, bestMove)
-  }
+  // if (ttEntry === null || ttEntry.depth < depth) {
+  //   if (bestScore <= alphaOrig) ttFlag = 'UPPER_BOUND'
+  //   else if (bestScore >= beta) ttFlag = 'LOWER_BOUND'
+  //   else ttFlag = 'EXACT'
+  //
+  //   tTable.insert(hash, depth, bestScore, ttFlag, bestMove)
+  // }
 
   return { score: bestScore, move: bestMove }
 }
